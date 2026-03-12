@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wire Cutter - Queue Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: #2a3a52;
+      --text: #e2e8f0;
+      --dim: #64748b;
+      --accent: #f59e0b;
+      --accent2: #eab308;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --info: #3b82f6;
+      --active-glow: rgba(245, 158, 11, 0.15);
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Space Grotesk', sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* === HEADER === */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 {
+      font-family: var(--mono);
+      font-size: 1.1em;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .header h1 span { color: var(--dim); font-weight: 400; }
+    .conn-badge {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .conn-badge.online { background: rgba(34,197,94,0.15); color: var(--success); }
+    .conn-badge.offline { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+    /* === LAYOUT === */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    /* === STATUS BAR === */
+    .status-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-card .label {
+      font-size: 0.7em;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .stat-card .value {
+      font-family: var(--mono);
+      font-size: 1.4em;
+      font-weight: 700;
+    }
+    .stat-card .value.state { color: var(--accent); }
+    .stat-card .value.count { color: var(--info); }
+    .stat-card .value.wire-ok { color: var(--success); }
+    .stat-card .value.wire-no { color: var(--danger); }
+
+    /* === ADD FORM === */
+    .add-form {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .add-form h3 {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--accent);
+      margin-bottom: 14px;
+      letter-spacing: 1px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.7em;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .form-group input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+    .form-group input::placeholder { color: #3a4a60; }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-add { background: var(--accent); color: #000; }
+    .btn-add:hover { background: var(--accent2); }
+    .btn-start { background: var(--success); color: #fff; }
+    .btn-start:hover { background: #16a34a; }
+    .btn-stop { background: var(--danger); color: #fff; }
+    .btn-stop:hover { background: #dc2626; }
+    .btn-sm { padding: 6px 12px; font-size: 0.75em; }
+
+    /* === QUEUE === */
+    .queue-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .queue-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .queue-header h3 {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .queue-actions { display: flex; gap: 8px; }
+    .queue-empty {
+      padding: 40px;
+      text-align: center;
+      color: var(--dim);
+      font-size: 0.9em;
+    }
+    .queue-list { list-style: none; }
+    .queue-item {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(42, 58, 82, 0.5);
+      transition: background 0.2s;
+    }
+    .queue-item:last-child { border-bottom: none; }
+    .queue-item:hover { background: rgba(255,255,255,0.02); }
+    .queue-item.active {
+      background: var(--active-glow);
+      border-left: 3px solid var(--accent);
+    }
+    .queue-item.done {
+      opacity: 0.5;
+    }
+    .queue-idx {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      font-weight: 700;
+      color: var(--dim);
+      text-align: center;
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      border-radius: 6px;
+      background: var(--bg);
+    }
+    .queue-item.active .queue-idx {
+      background: var(--accent);
+      color: #000;
+    }
+    .queue-info h4 {
+      font-size: 0.95em;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .queue-info .meta {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      color: var(--dim);
+    }
+    .queue-info .meta b { color: var(--text); }
+    .queue-info .progress-text {
+      font-family: var(--mono);
+      font-size: 0.75em;
+      color: var(--accent);
+      margin-top: 3px;
+    }
+    .queue-progress {
+      width: 100%;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    .queue-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.5s;
+    }
+    .queue-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-remove {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75em;
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: all 0.2s;
+    }
+    .btn-remove:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.active { background: var(--accent); animation: pulse 1.5s infinite; }
+    .status-dot.waiting { background: var(--dim); }
+    .status-dot.done { background: var(--success); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* === IP CONFIG === */
+    .ip-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .ip-bar input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85em;
+      width: 200px;
+      outline: none;
+    }
+    .ip-bar input:focus { border-color: var(--accent); }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 600px) {
+      .form-row { grid-template-columns: 1fr 1fr; }
+      .form-row .form-group:first-child { grid-column: span 2; }
+      .form-row .btn-add { grid-column: span 2; }
+      .status-bar { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>WIRE_CUTTER <span>// queue</span></h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div class="ip-bar">
+      <input type="text" id="ipInput" placeholder="ESP32 IP (e.g. 192.168.1.x)">
+      <button class="btn btn-sm btn-add" onclick="connectWS()">Connect</button>
+    </div>
+    <span id="connBadge" class="conn-badge offline">OFFLINE</span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Status -->
+  <div class="status-bar">
+    <div class="stat-card">
+      <div class="label">State</div>
+      <div class="value state" id="stState">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Queue</div>
+      <div class="value count" id="stQueue">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Current</div>
+      <div class="value" id="stCurrent" style="color:var(--accent)">--</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Wire</div>
+      <div class="value wire-ok" id="stWire">--</div>
+    </div>
+  </div>
+
+  <!-- Add Form -->
+  <div class="add-form">
+    <h3>+ ADD TO QUEUE</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Label / Name</label>
+        <input type="text" id="fLabel" placeholder="e.g. Red 22AWG" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label>Length (cm)</label>
+        <input type="number" id="fLength" value="10" min="1" max="999">
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" id="fQty" value="5" min="1" max="999">
+      </div>
+      <div class="form-group">
+        <label>Strip (mm)</label>
+        <input type="number" id="fStrip" value="8" min="0" max="50">
+      </div>
+      <button class="btn btn-add" onclick="addJob()">ADD</button>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="queue-section">
+    <div class="queue-header">
+      <h3>QUEUE</h3>
+      <div class="queue-actions">
+        <button class="btn btn-sm btn-start" onclick="startQueue()">START</button>
+        <button class="btn btn-sm btn-stop" onclick="stopQueue()">STOP</button>
+      </div>
+    </div>
+    <div id="queueContainer">
+      <div class="queue-empty">No jobs in queue. Add one above.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let ws = null;
+let queueData = [];
+let machineState = {};
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let reconnectTimer = null;
+
+function connectWS() {
+  const ip = document.getElementById('ipInput').value.trim();
+  if (!ip) { alert('Enter ESP32 IP address'); return; }
+  
+  // Clear existing reconnect timer
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  
+  // Close existing connection properly
+  if (ws) {
+    ws.onclose = null; // Remove handler to prevent recursive calls
+    ws.close();
+    ws = null;
+  }
+  
+  const url = 'ws://' + ip + ':81';
+  console.log('Connecting to', url);
+  
+  try {
+    ws = new WebSocket(url);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+      reconnectAttempts = 0; // Reset counter on success
+      document.getElementById('connBadge').textContent = 'ONLINE';
+      document.getElementById('connBadge').className = 'conn-badge online';
+      
+      // Request current queue
+      ws.send(JSON.stringify({cmd:'get_queue'}));
+    };
+    
+    ws.onclose = (event) => {
+      console.log('WebSocket closed:', event.code, event.reason);
+      document.getElementById('connBadge').textContent = 'OFFLINE';
+      document.getElementById('connBadge').className = 'conn-badge offline';
+      
+      // Only auto-reconnect if not intentionally closed and below max attempts
+      if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        const delay = Math.min(3000 * reconnectAttempts, 15000); // Max 15s
+        console.log(`Reconnecting in ${delay/1000}s... (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+        
+        reconnectTimer = setTimeout(() => {
+          if (document.getElementById('ipInput').value.trim()) {
+            connectWS();
+          }
+        }, delay);
+      } else if (reconnectAttempts >= maxReconnectAttempts) {
+        console.error('Max reconnection attempts reached');
+        alert('Connection lost. Please check ESP32 and click Connect again.');
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        console.log('Received:', data);
+        
+        if (data.type === 'queue_update') {
+          machineState.state = data.state;
+          machineState.current_idx = data.current_idx;
+          queueData = data.queue || [];
+          renderAll();
+        }
+      } catch(err) { 
+        console.error('Parse error:', err); 
+      }
+    };
+    
+  } catch(err) {
+    console.error('WebSocket creation error:', err);
+    alert('Failed to connect. Check IP address.');
+  }
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+    console.log('Sent:', obj);
+  } else {
+    console.error('WebSocket not connected');
+    alert('Not connected to ESP32. Please connect first.');
+  }
+}
+
+function addJob() {
+  const label = document.getElementById('fLabel').value.trim() || 'Job';
+  const length_cm = parseInt(document.getElementById('fLength').value) || 10;
+  const quantity = parseInt(document.getElementById('fQty').value) || 1;
+  const strip_mm = parseInt(document.getElementById('fStrip').value) || 8;
+  
+  // ⚠️ FIX: Convert cm to mm for Arduino (length_mm not length_cm)
+  const length_mm = length_cm * 10;
+  
+  send({ 
+    cmd: 'add', 
+    label: label, 
+    length_mm: length_mm,  // Arduino expects length_mm
+    quantity: quantity, 
+    strip_mm: strip_mm 
+  });
+  
+  // Clear label for next job
+  document.getElementById('fLabel').value = '';
+}
+
+function removeJob(idx) { 
+  send({ cmd: 'remove', idx: idx }); 
+}
+
+function startQueue() { 
+  send({ cmd: 'start' }); 
+}
+
+function stopQueue() { 
+  send({ cmd: 'stop' }); 
+}
+
+function renderAll() {
+  // Status bar
+  document.getElementById('stState').textContent = machineState.state || '--';
+  document.getElementById('stQueue').textContent = queueData.length;
+  
+  const cur = machineState.current_idx;
+  if (cur >= 0 && cur < queueData.length) {
+    const j = queueData[cur];
+    document.getElementById('stCurrent').textContent = j.done + '/' + j.quantity;
+  } else {
+    document.getElementById('stCurrent').textContent = '--';
+  }
+  
+  // Wire status from state
+  const wireEl = document.getElementById('stWire');
+  if (machineState.state === 'PAUSED') {
+    wireEl.textContent = 'EMPTY';
+    wireEl.className = 'value wire-no';
+  } else {
+    wireEl.textContent = 'OK';
+    wireEl.className = 'value wire-ok';
+  }
+  
+  // Queue list
+  const container = document.getElementById('queueContainer');
+  if (queueData.length === 0) {
+    container.innerHTML = '<div class="queue-empty">No jobs in queue. Add one above.</div>';
+    return;
+  }
+  
+  let html = '<ul class="queue-list">';
+  queueData.forEach((item, i) => {
+    const isActive = item.active;
+    const isDone = item.done >= item.quantity;
+    const pct = item.quantity > 0 ? (item.done / item.quantity * 100).toFixed(0) : 0;
+    
+    let cls = 'queue-item';
+    if (isActive) cls += ' active';
+    if (isDone) cls += ' done';
+    
+    let dotCls = 'status-dot waiting';
+    if (isActive) dotCls = 'status-dot active';
+    if (isDone) dotCls = 'status-dot done';
+    
+    // ⚠️ FIX: Display length in cm (convert from mm)
+    const length_cm = (item.length_mm / 10).toFixed(1);
+    
+    html += `
+      <li class="${cls}">
+        <div class="queue-idx">${i + 1}</div>
+        <div class="queue-info">
+          <h4>${escHtml(item.label)}</h4>
+          <div class="meta">
+            <b>${length_cm}</b>cm × <b>${item.quantity}</b>pcs &nbsp;|&nbsp; strip <b>${item.strip_mm}</b>mm
+          </div>
+          ${isActive || item.done > 0 ? `
+            <div class="progress-text">${item.done} / ${item.quantity} done (${pct}%)</div>
+            <div class="queue-progress">
+              <div class="queue-progress-fill" style="width:${pct}%"></div>
+            </div>
+          ` : ''}
+        </div>
+        <div class="queue-right">
+          <span class="${dotCls}"></span>
+          ${!isActive ? `<button class="btn-remove" onclick="removeJob(${i})">×</button>` : ''}
+        </div>
+      </li>
+    `;
+  });
+  html += '</ul>';
+  container.innerHTML = html;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
+  if (ws) {
+    ws.onclose = null;
+    ws.close();
+  }
+});
+
+// Auto-connect: ถ้าเปิดจาก ESP32 ให้ใช้ hostname เดียวกัน
+window.addEventListener('load', () => {
+  const hash = location.hash.substring(1);
+  if (hash) {
+    document.getElementById('ipInput').value = hash;
+    connectWS();
+  } else if (location.hostname && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    // เปิดจาก ESP32 โดยตรง → auto-connect
+    document.getElementById('ipInput').value = location.hostname;
+    connectWS();
+  }
+});
+
+// Keyboard shortcut: Enter in IP field
+document.getElementById('ipInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') connectWS();
+});
+document.getElementById('fLabel').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addJob();
+});
+</script>
+</body>
+</html>
